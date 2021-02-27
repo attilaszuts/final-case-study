@@ -61,3 +61,6 @@ g <- df %>% filter(partner_profil_oracle == "Gym") %>% ggplot(aes(sales_this_yea
 d <- df %>% filter(partner_profil_oracle == "Distributor") %>% ggplot(aes(sales_this_year, last_year_sales)) + geom_smooth() + geom_point() + scale_y_log10() + scale_x_log10()
 
 ggarrange(w, s, g, d)
+
+# percentage of key accounts
+df %>% group_by(state) %>% summarise(ka_count = sum(as.numeric(key_accounts)) / sum(as.numeric(df$key_accounts))) %>% ggplot(aes(state, ka_count)) + geom_bar(stat="identity") + scale_y_continuous(limits = c(0,1))
