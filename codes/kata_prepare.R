@@ -23,3 +23,4 @@ to_filter <- sapply(data, function(x) sum(is.na(x)))
 to_filter[to_filter > 0]
 # missings in population, size of the shop m2 and amazon web
 
+#
