@@ -38,7 +38,8 @@ data <- data %>% dplyr::mutate(sales_channel_p_gym = as.numeric(sales_channel_p_
                         key_accounts = as.factor(key_accounts),
                         stand_alone_shops = as.factor(stand_alone_shops),
                         amazon_web = as.factor(amazon_web),
-                        active_partner = NULL
+                        active_partner = NULL,
+                        partner_code = as.factor(partner_code)
 )
 
 # check missing values
