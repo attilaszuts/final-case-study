@@ -4,6 +4,7 @@
 library(tidyverse)
 library(factoextra)
 library(NbClust)
+library(ggalt)
 
 # import data -------------------------------------------------------------
 
@@ -44,13 +45,15 @@ df_variance <- tibble(
   component = 1:length(variances),
   share_variance = share_variance_by_component
 ) %>%
-  mutate(cum_share_variance = cumsum(share_variance))
+  mutate(`Cumulative share of variance` = cumsum(share_variance)) %>% 
+  rename(`Share of variance` = share_variance)
 
 # plot the share of variance
 ggplot(data = pivot_longer(df_variance, -component)) +
-  geom_line(aes(x = component, y = value, color = name)) +
+  geom_line(aes(x = component, y = value, color = name), show.legend = F) +
   facet_wrap(~ name, scales = "free_y") +
-  theme(legend.position = "bottom")
+  theme_classic() + 
+  scale_color_manual(values = pal_futurama("planetexpress")(12)[c(1,4)])
 
 # plot contributions of variables in PC1
 fviz_contrib(pca_result, "var", axes = 1)
@@ -120,3 +123,58 @@ data2 <- data2 %>% mutate(cluster_kmeans = data_w_clusters_3$cluster)
 # only one observation is put in another cluster according to pca the rest are the same for
 # both methods
 sum(data2$cluster_kmeans == data2$cluster_pca)
+
+
+
+# interpretation ----------------------------------------------------------
+
+data2 %>% 
+  filter(last_year_sales != 0) %>% 
+  ggplot(aes(sales_this_year, last_year_sales, color = cluster_pca)) + 
+  geom_point(alpha = 0.6, size = 2, show.legend = F) + 
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x), 
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(1, 10^7)) + 
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), 
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(10^2+450, 10^6+5000000))  + 
+  labs(x = "Sales this year, USD", y = "Sales last year, USD",
+       title = "Correlation between sales this year and last year") + 
+  theme_classic() + 
+  scale_color_manual(values = pal_futurama()(12)[c(1,4,9)])
+
+
+# create helper df-s for annotations
+clust1 <- data_w_clusters_pca_2 %>% filter(cluster == 1)
+clust2 <- data_w_clusters_pca_2 %>% filter(cluster == 2)
+clust3 <- data_w_clusters_pca_2 %>% filter(cluster == 3)
+
+
+# Orange cluster is pretty much the current key accounts, or partners, that have a very high revenue
+# I think black should be the other potential partner group worth considering for additional services, 
+# as they are the most similar to the current key accounts. (in terms of shop numbers, and types)
+data_w_clusters_pca_2 %>% 
+  ggplot(aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(show.legend = F) +
+  theme_classic() +
+  labs( x='\n PC1', y='PC2 \n', title = 'Data split into three clusters (PCA)') +
+  theme( panel.grid.minor.x = element_blank(), 
+         plot.title = element_text( size = 12, face = "bold", hjust = 0.5 ) ) + 
+  scale_color_manual(values = pal_futurama()(12)[c(1,4,9)]) + 
+  geom_encircle(aes(PC1, PC2), 
+                data=clust1, 
+                color="#FF6F00FF", 
+                size=2, 
+                expand=0.03) +
+  geom_encircle(aes(PC1, PC2), 
+                data=clust2, 
+                color="#8A4198FF", 
+                size=2, 
+                expand=0.02) +
+  geom_encircle(aes(PC1, PC2), 
+                data=clust3, 
+                color="#3D3B25FF", 
+                size=2, 
+                expand=0.02) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_vline(xintercept = 0, linetype = "dashed")
