@@ -156,7 +156,7 @@ df %>%
   scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), 
                 labels = trans_format("log10", math_format(10^.x)),
                 limits = c(10^2+450, 10^6+5000000))  + 
-  scale_color_manual(values = pal_futurama("planetexpress")(12)[c(1,4)], name = NULL, labels = c("Only one shop", "Multiple shops/webshop(s)")) + 
+  scale_color_manual(values = pal_futurama("planetexpress")(12)[c(1,4)], name = NULL, labels = c("Multiple shops/webshop(s)", "Only one shop")) + 
   labs(x = "Sales this year, USD", y = "Sales last year, USD",
        title = "Correlation between sales this year and last year",
        subtitle = "Conditional on number of shops") + 
