@@ -5,6 +5,8 @@ library(tidyverse)
 library(factoextra)
 library(NbClust)
 library(ggalt)
+library(ggsci)
+library(scales)
 
 # import data -------------------------------------------------------------
 
