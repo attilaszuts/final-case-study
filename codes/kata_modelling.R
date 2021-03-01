@@ -7,6 +7,7 @@ library(NbClust)
 library(ggalt)
 library(ggsci)
 library(scales)
+source("codes/helper.R")
 
 # import data -------------------------------------------------------------
 
@@ -58,12 +59,48 @@ ggplot(data = pivot_longer(df_variance, -component)) +
   scale_color_manual(values = pal_futurama("planetexpress")(12)[c(1,4)])
 
 # plot contributions of variables in PC1
-fviz_contrib(pca_result, "var", axes = 1)
+pl_cont_1 <- fviz_contrib(pca_result, "var", axes = 1)
+pl_cont_1
 # variables related to sales and profit contribute the most
 
 # plot contributions of variables in PC2
-fviz_contrib(pca_result, "var", axes = 2)
+pl_cont_2 <- fviz_contrib(pca_result, "var", axes = 2)
+pl_cont_2
+# -sales_channel_p_shop, +sales_channel_p_gym, +company_p_in_shops
 # variables related to sales channels contribute the most
+
+# plot contributions of variables in PC3
+pl_cont_3 <- fviz_contrib(pca_result, "var", axes = 3)
+pl_cont_3
+# +webshop, -share of wallet, -num of months ordered, -distributor 
+
+# plot contributions of variables in PC4
+pl_cont_4 <- fviz_contrib(pca_result, "var", axes = 4)
+pl_cont_4
+# +sales channel other, -population, -gym
+
+# loadings on PC2 (whats the difference between cluster 2 and 3)
+pc2 <- pca_result$rotation[,2]
+pc2_loadings <- data.frame(pc2_vars = names(pc2), loadings = pc2)
+row.names(pc2_loadings) <- NULL
+
+pc2_loadings %>% arrange(desc(loadings))
+
+# loadings on PC3 (whats the difference between cluster 2 and 3)
+pc3 <- pca_result$rotation[,3]
+pc3_loadings <- data.frame(pc3_vars = names(pc3), loadings = pc3)
+row.names(pc3_loadings) <- NULL
+
+pc3_loadings %>% arrange(desc(loadings))
+
+# loadings on PC4 (whats the difference between cluster 2 and 3)
+pc4 <- pca_result$rotation[,4]
+pc4_loadings <- data.frame(pc4_vars = names(pc4), loadings = pc4)
+row.names(pc4_loadings) <- NULL
+
+pc4_loadings %>% arrange(desc(loadings))
+
+
 
 # visualize partners based on PC1 and PC2
 fviz_pca_ind(pca_result, axes = c(1,2))
@@ -126,11 +163,9 @@ data2 <- data2 %>% mutate(cluster_kmeans = data_w_clusters_3$cluster)
 # both methods
 sum(data2$cluster_kmeans == data2$cluster_pca)
 
-
-
 # interpretation ----------------------------------------------------------
 
-data2 %>% 
+pl_sc_sales <- data2 %>% 
   filter(last_year_sales != 0) %>% 
   ggplot(aes(sales_this_year, last_year_sales, color = cluster_pca)) + 
   geom_point(alpha = 0.6, size = 2, show.legend = F) + 
@@ -144,7 +179,7 @@ data2 %>%
        title = "Correlation between sales this year and last year") + 
   theme_classic() + 
   scale_color_manual(values = pal_futurama()(12)[c(1,4,9)])
-
+pl_sc_sales
 
 # create helper df-s for annotations
 clust1 <- data_w_clusters_pca_2 %>% filter(cluster == 1)
@@ -155,9 +190,9 @@ clust3 <- data_w_clusters_pca_2 %>% filter(cluster == 3)
 # Orange cluster is pretty much the current key accounts, or partners, that have a very high revenue
 # I think black should be the other potential partner group worth considering for additional services, 
 # as they are the most similar to the current key accounts. (in terms of shop numbers, and types)
-data_w_clusters_pca_2 %>% 
+pl_cl_12 <- data_w_clusters_pca_2 %>% 
   ggplot(aes(x = PC1, y = PC2, color = cluster)) +
-  geom_point(show.legend = F) +
+  geom_point(show.legend = F, size = 2) +
   theme_classic() +
   labs( x='\n PC1', y='PC2 \n', title = 'Data split into three clusters (PCA)') +
   theme( panel.grid.minor.x = element_blank(), 
@@ -180,3 +215,55 @@ data_w_clusters_pca_2 %>%
                 expand=0.02) + 
   geom_hline(yintercept = 0, linetype = "dashed") + 
   geom_vline(xintercept = 0, linetype = "dashed")
+pl_cl_12 
+
+
+# join all observations together
+data3 <- data2 %>% select(partner_code, cluster_pca) %>%  right_join(data, by = "partner_code")
+
+# cluster 1 shouold be key account
+pl_sc_potKA <- data3 %>% 
+  dplyr::filter(!(cluster_pca %in% c(3,2))) %>% 
+  mutate(cluster_pca = ifelse(is.na(cluster_pca), "Existing KA", "Potential KA")) %>% 
+  ggplot(aes(sales_this_year, last_year_sales, color = cluster_pca)) + 
+  geom_point() + 
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x), 
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(1, 10^7)) + 
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), 
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(10^2+450, 10^6+5000000))  + 
+  theme_classic() + 
+  scale_color_manual(values = pal_futurama()(12)[c(7,1)], name = NULL) +
+  labs(x = "Sales this year, USD", y = "Sales last year, USD",
+       title = "Existing and Potential Key Accounts", 
+       subtitle = "") + 
+  theme(legend.position = c(0.1, 0.9), legend.title = NULL, legend.background = element_rect(fill = "transparent", color = "transparent"))
+pl_sc_potKA  
+
+
+
+
+
+
+
+# table + boxplot + relationship (support our findings with their relationship quality)
+options(digits = 4)
+data3 %>% 
+  group_by(cluster_pca) %>% 
+  dplyr::filter(cluster_pca %in% c(2, 3)) %>% 
+  mutate(cluster_pca = ifelse(cluster_pca == "2", "Cluster 2", "Cluster 3")) %>% 
+  rename(Cluster = cluster_pca) %>% 
+  summarise(
+    `Share of wallet (%)` = mean(company_p_in_shops) * 100,
+    `Estimated sales in gym (%)` = mean(sales_channel_p_gym) * 100,
+    `Estimated sales in shop (%)` = mean(sales_channel_p_shop) * 100,
+    `Relationship (1-6)` = mean(as.numeric(relationship_quality))
+  ) %>% 
+  knitr::kable() %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  cat(., file = "out/cluster2vs3.html")
+
+# differences between 2, 3 in terms of factors
+
+plot_export()
