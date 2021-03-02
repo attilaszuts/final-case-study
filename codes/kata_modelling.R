@@ -266,4 +266,87 @@ data3 %>%
 
 # differences between 2, 3 in terms of factors
 
+
+# representative sales channels for key accounts
+data3 %>% 
+  mutate(cluster_pca = ifelse(is.na(cluster_pca), "4", cluster_pca)) %>% 
+  filter(cluster_pca != "1") %>% 
+  group_by(key_accounts) %>% 
+  summarise(
+    mean_shop = mean(sales_channel_p_shop),
+    mean_gym = mean(sales_channel_p_gym),
+    mean_distributor = mean(sales_channel_p_distributor),
+    mean_webshop = mean(sales_channel_p_webshop),
+    mean_other = mean(sales_channel_p_other),
+    mean_protein = mean(protein_sales_this_year),
+    mean_months = mean(number_of_months_when_ordered),
+    mean_wallet = mean(company_p_in_shops),
+    mean_relationship = mean(as.numeric(relationship_quality)),
+    sd_relationship = sd(as.numeric(relationship_quality))
+  )
+
+
+# visualize partners based on PC1 and PC2
+fviz_pca_ind(pca_result, axes = c(1,2))
+# they are more separated along PC2
+
+# k-means for PCA
+first_4_pc <- as_tibble(pca_result$x[, 1:4])
+# create clusters for PCA
+km_pca_4 <- kmeans(first_4_pc, centers = 3, nstart = 20)
+
+# add cluster labels to df
+data_w_clusters_4 <- mutate(first_4_pc, cluster = factor(km_pca_4$cluster))
+
+
+data_w_clusters_4 %>% 
+  ggplot(aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(show.legend = F, size = 2) +
+  theme_classic() +
+  labs( x='\n PC1', y='PC2 \n', title = 'Data split into three clusters (PCA)') +
+  theme( panel.grid.minor.x = element_blank(), 
+         plot.title = element_text( size = 12, face = "bold", hjust = 0.5 ) ) + 
+  scale_color_manual(values = pal_futurama()(12)[c(4,1 , 9)]) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_vline(xintercept = 0, linetype = "dashed")
+
+
+pl_cl_32 <- data_w_clusters_4 %>% 
+  ggplot(aes(x = PC3, y = PC2, color = cluster)) +
+  geom_point(show.legend = F, size = 2) +
+  theme_classic() +
+  labs( x='\n PC3', y='PC2 \n', title = 'Data split into three clusters (PCA)') +
+  theme( panel.grid.minor.x = element_blank(), 
+         plot.title = element_text( size = 12, face = "bold", hjust = 0.5 ) ) + 
+  scale_color_manual(values = pal_futurama()(12)[c(4, 1, 9)]) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_vline(xintercept = 0, linetype = "dashed")
+
+pl_cl_42 <- data_w_clusters_4 %>% 
+  ggplot(aes(x = PC4, y = PC2, color = cluster)) +
+  geom_point(show.legend = F, size = 2) +
+  theme_classic() +
+  labs( x='\n PC4', y='PC2 \n', title = 'Data split into three clusters (PCA)') +
+  theme( panel.grid.minor.x = element_blank(), 
+         plot.title = element_text( size = 12, face = "bold", hjust = 0.5 ) ) + 
+  scale_color_manual(values = pal_futurama()(12)[c(4, 1, 9)]) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_vline(xintercept = 0, linetype = "dashed")
+
+# pl_cl_43 <- 
+data_w_clusters_4 %>% 
+  ggplot(aes(x = PC4, y = PC3, color = cluster)) +
+  geom_point(show.legend = F, size = 2) +
+  theme_classic() +
+  labs( x='\n PC4', y='PC3 \n', title = 'Data split into three clusters (PCA)') +
+  theme( panel.grid.minor.x = element_blank(), 
+         plot.title = element_text( size = 12, face = "bold", hjust = 0.5 ) ) + 
+  scale_color_manual(values = pal_futurama()(12)[c(1, 4, 9)]) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_vline(xintercept = 0, linetype = "dashed")
+
+
+
+
+
 plot_export()
