@@ -6,6 +6,7 @@ library(NbClust)
 library(ggalt)
 library(ggsci)
 library(scales)
+library(skimr)
 source("codes/helper.R")
 
 
@@ -239,7 +240,13 @@ data_no_key %>%
   ggplot(aes(sales_channel_p_webshop, color = cluster_pca_23)) + geom_density()
 
 data_no_key %>% 
+  # mutate(customer_segment = ifelse(key_accounts == "1", "Key Account", 
+  #                                  ifelse(cluster_pca == "1", "Potential Key Account", 
+  #                                         ifelse(cluster_pca_23 == "1", "Gym",
+  #                                                ifelse(cluster_pca_23 == "2", "Visionary", 
+  #                                                       ifelse(cluster_pca_23 == "3", "Premium Partner", "Challengers")))))) %>% 
   mutate(cluster_pca_23 = ifelse(is.na(cluster_pca_23), "Potential KA", cluster_pca_23)) %>% 
+  # group_by(customer_segment) %>% 
   group_by(cluster_pca_23) %>% 
   summarise(
     mean_shop = mean(sales_channel_p_shop),
@@ -258,7 +265,10 @@ data_no_key %>%
 
 # plot scatterplot (sales. this year - last year)
 
-data_no_key %>% right_join(select(data, partner_code)) 
+data_all <- data %>% left_join(select(data_no_key, partner_code, cluster_pca, cluster_pca_23), by = "partner_code") 
+
+# data_all %>% 
+#   
 
 # Interpretation ----------------------------------------------------------
 
@@ -387,9 +397,111 @@ data_clust %>%
 
 
 
+# difference between subgroups
+data_all <- data_all %>% 
+  mutate(customer_segment = as.factor(ifelse(key_accounts == "1", "Key Account", 
+                                   ifelse(cluster_pca == "1", "Potential Key Account", 
+                                          ifelse(cluster_pca_23 == "1", "Gym",
+                                                 ifelse(cluster_pca_23 == "2", "Visionary", 
+                                                        ifelse(cluster_pca_23 == "3", "Premium Partner", "Challenger")))))),
+         customer_segment = fct_relevel(customer_segment, "Gym", "Visionary", "Premium Partner", "Challenger", "Potential Key Account", "Key Account"))
 
 
 
+
+# Compare customer segments -----------------------------------------------
+
+
+pl_sc_cs1 <- data_all %>% 
+  filter(last_year_sales != 0) %>% 
+  ggplot(aes(sales_this_year, last_year_sales, color = customer_segment)) + 
+  geom_point(alpha = 0.6, size = 3, show.legend = T) + 
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x), 
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(1, 10^7)) + 
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x), 
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(10^2+450, 10^6+5000000))  + 
+  labs(x = "Sales this year, USD", y = "Sales last year, USD",
+       title = "Proposed customer segments") + 
+  theme_classic()  + 
+  # scale_color_manual(values = pal_npg("nrc")(10)[3:8])
+  scale_color_manual(values = pal_npg("nrc")(10)[c(4,8, 7,3, 2,6)], name = NULL) +
+  theme(legend.position = c(0.66, 0.4), legend.title = NULL, legend.background = element_rect(fill = "transparent", color = "transparent"))
+pl_sc_cs1 
+
+# Sales channel
+
+pl_bar_cs1 <- data_all %>% 
+  select(customer_segment, sales_channel_p_shop, sales_channel_p_gym, sales_channel_p_distributor, sales_channel_p_webshop,
+         sales_channel_p_other) %>% 
+  # mutate(relationship_quality = as.numeric(relationship_quality)) %>% 
+  group_by(customer_segment) %>% 
+  summarise_all(mean, na.rm = T) %>% 
+  pivot_longer(-customer_segment) %>% 
+  ggplot(aes(customer_segment, value, fill = customer_segment)) + 
+  geom_bar(stat="identity") + 
+  facet_wrap( ~ name, scales = "free_y") + 
+  theme_classic() + 
+  labs(y = "Proportion of Partners (%)") + 
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 100)) + 
+  scale_fill_manual(values = pal_npg("nrc")(10)[c(4,8, 7,3, 2,6)], name = NULL) + 
+  theme(legend.position = c(0.85, 0.3), legend.title = NULL, legend.background = element_rect(fill = "transparent", color = "transparent"),
+        axis.title.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank())
+pl_bar_cs1
+
+data_all %>% 
+  select(customer_segment, number_of_months_when_ordered, company_p_in_shops, relationship_quality) %>% 
+  mutate(relationship_quality = as.numeric(relationship_quality)) %>% 
+  group_by(customer_segment) %>% 
+  summarise_all(mean, na.rm = T) %>% 
+  pivot_longer(-customer_segment) %>% 
+  ggplot(aes(customer_segment, value, fill = customer_segment)) + 
+  geom_bar(stat="identity") + 
+  facet_wrap( ~ name, scales = "free_y") + 
+  theme_classic() + 
+  scale_fill_manual(values = pal_npg("nrc")(10)[c(4,8, 7,3, 2,6)], name = NULL) + 
+  theme(legend.position = c(0.85, 0.3), legend.title = NULL, legend.background = element_rect(fill = "transparent", color = "transparent"),
+        axis.title.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank())
+
+
+data_all %>% 
+  select(customer_segment, gm_this_year, last_year_sales, protein_sales_this_year, sales_this_year) %>% 
+  # mutate(relationship_quality = as.numeric(relationship_quality)) %>% 
+  group_by(customer_segment) %>% 
+  summarise_all(mean, na.rm = T) %>% 
+  pivot_longer(-customer_segment) %>% 
+  mutate(name = fct_relevel(as.factor(name), "protein_sales_this_year")) %>% 
+  ggplot(aes(customer_segment, value, fill = customer_segment)) + 
+  geom_bar(stat="identity") + 
+  facet_wrap( ~ name) + 
+  theme_classic() + 
+  labs(y = "Value") + 
+  scale_y_continuous(labels = function(x) {parse(text=gsub("e", " %*% 10^", scales::scientific_format()(x)))}) +
+  scale_fill_manual(values = pal_npg("nrc")(10)[c(4,8, 7,3, 2,6)], name = NULL) + 
+  theme(legend.position = c(0.13, 0.85), legend.title = NULL, legend.background = element_rect(fill = "transparent", color = "transparent"),
+        axis.title.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank())
+
+
+data_all %>% 
+  select(customer_segment, gm_this_year, sales_channel_p_shop, sales_channel_p_gym, sales_channel_p_distributor, sales_channel_p_webshop,
+         sales_channel_p_other, protein_sales_this_year, number_of_months_when_ordered, company_p_in_shops, relationship_quality) %>% 
+  mutate(relationship_quality = as.numeric(relationship_quality)) %>% 
+  group_by(customer_segment) %>% 
+  summarise_all(mean, na.rm = T) %>% 
+  pivot_longer(-customer_segment) %>% 
+  ggplot(aes(customer_segment, value, fill = customer_segment)) + 
+  geom_bar(stat="identity") + 
+  facet_wrap( ~ name, scales = "free_y") + 
+  theme_classic() + 
+  labs(y = "Value") + 
+  scale_fill_manual(values = pal_npg("nrc")(10)[c(4,8, 7,3, 2,6)], name = NULL) + 
+  theme(legend.position = c(0.66, 0.15), legend.title = NULL, legend.background = element_rect(fill = "transparent", color = "transparent"),
+        axis.title.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank())
+
+
+pl_bar_cs2
+pl_sc_cs2
 plot_export()
 
 
